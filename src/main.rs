@@ -1,3 +1,4 @@
+#![deny(bare_trait_objects)]
 extern crate piston_window;
 
 use piston_window::*;
@@ -6,37 +7,50 @@ const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
 pub struct GameOfLife {
-    pixel_size: f64,
     state: [[bool; 100]; 100],
 }
 
-impl GameOfLife {
-    fn pixel_coord(x_id: usize, y_id: usize, size: f64) -> (f64, f64) {
-        let x_coord = x_id as f64 * size + size;
-        let y_coord = y_id as f64 * size + size;
+struct App {
+    pixel_size: f64,
+    game: GameOfLife,
+}
+
+trait RenderGame {
+    fn pixel_coord(&self, x_id: usize, y_id: usize) -> (f64, f64);
+    fn render(&self, event: &Event, window: &mut PistonWindow) -> ();
+}
+impl RenderGame for App {
+    fn pixel_coord(&self, x_id: usize, y_id: usize) -> (f64, f64) {
+        let x_coord = x_id as f64 * self.pixel_size + self.pixel_size;
+        let y_coord = y_id as f64 * self.pixel_size + self.pixel_size;
         (x_coord, y_coord)
     }
 
-    fn render(&mut self, event: &Event, window: &mut PistonWindow) {
+    fn render(&self, event: &Event, window: &mut PistonWindow) {
         println!("render");
         let pixel = rectangle::square(0.0, 0.0, self.pixel_size);
 
         window.draw_2d(event, |c, g| {
             for i in 0..100 {
                 for j in 0..100 {
-                    let pixel_state = self.state[i][j];
+                    let pixel_state = self.game.state[i][j];
                     let pixel_color = if pixel_state { BLACK } else { WHITE };
-                    let (pixel_x, pixel_y) = GameOfLife::pixel_coord(i, j, self.pixel_size);
+                    let (pixel_x, pixel_y) = self.pixel_coord(i, j);
                     let pixel_transform = c.transform.trans(pixel_x, pixel_y);
                     rectangle(pixel_color, pixel, pixel_transform, g);
                 }
             }
         });
     }
+}
 
-    fn update(&mut self) {
+trait Updater {
+    fn tick(&mut self);
+}
+impl Updater for App {
+    fn tick(&mut self) {
         println!("update");
-        self.state[1][1] = !self.state[1][1];
+        self.game.state[1][1] = !self.game.state[1][1];
     }
 }
 
@@ -53,9 +67,11 @@ fn main() {
         }
     }
 
-    let mut app = GameOfLife {
+    let game_state = GameOfLife { state: new_state };
+
+    let mut app = App {
         pixel_size: 5.0,
-        state: new_state,
+        game: game_state,
     };
 
     let speed = 1;
@@ -66,14 +82,13 @@ fn main() {
         }
 
         if let Some(_) = event.update_args() {
-            app.update();
+            app.tick();
         }
     }
 }
 
-
-#[test]
-fn pixel_coordinations_test() {
-    assert_eq!(GameOfLife::pixel_coord(10, 10, 2.0), (22.0, 22.0));
-    assert_eq!(GameOfLife::pixel_coord(0, 0, 2.0), (2.0, 2.0));
-}
+//#[test]
+//fn pixel_coordinations_test() {
+//    assert_eq!(GameOfLife::pixel_coord(10, 10, 2.0), (22.0, 22.0));
+//    assert_eq!(GameOfLife::pixel_coord(0, 0, 2.0), (2.0, 2.0));
+//}
