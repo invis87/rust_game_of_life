@@ -4,16 +4,20 @@ use piston_window::*;
 
 const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
 pub struct GameOfLife {
     pixel_size: f64,
-    color: [f32; 4],
     state: [[bool; 100]; 100],
 }
 
 impl GameOfLife {
-    fn render(&mut self, event: &Event, args: &RenderArgs, window: &mut PistonWindow) {
+    fn pixel_coord(x_id: usize, y_id: usize, size: f64) -> (f64, f64) {
+        let x_coord = x_id as f64 * size + size;
+        let y_coord = y_id as f64 * size + size;
+        (x_coord, y_coord)
+    }
+
+    fn render(&mut self, event: &Event, window: &mut PistonWindow) {
         println!("render");
         let pixel = rectangle::square(0.0, 0.0, self.pixel_size);
 
@@ -22,8 +26,7 @@ impl GameOfLife {
                 for j in 0..100 {
                     let pixel_state = self.state[i][j];
                     let pixel_color = if pixel_state { BLACK } else { WHITE };
-                    let pixel_x: f64 = i as f64 * self.pixel_size + self.pixel_size;
-                    let pixel_y: f64 = j as f64 * self.pixel_size + self.pixel_size;
+                    let (pixel_x, pixel_y) = GameOfLife::pixel_coord(i, j, self.pixel_size);
                     let pixel_transform = c.transform.trans(pixel_x, pixel_y);
                     rectangle(pixel_color, pixel, pixel_transform, g);
                 }
@@ -31,7 +34,7 @@ impl GameOfLife {
         });
     }
 
-    fn update(&mut self, update: &UpdateArgs) {
+    fn update(&mut self) {
         println!("update");
         self.state[1][1] = !self.state[1][1];
     }
@@ -52,19 +55,25 @@ fn main() {
 
     let mut app = GameOfLife {
         pixel_size: 5.0,
-        color: RED,
         state: new_state,
     };
 
     let speed = 1;
     let mut events = Events::new(EventSettings::new().ups(speed).max_fps(speed));
     while let Some(event) = events.next(&mut window) {
-        if let Some(r) = event.render_args() {
-            app.render(&event, &r, &mut window);
+        if let Some(_) = event.render_args() {
+            app.render(&event, &mut window);
         }
 
-        if let Some(u) = event.update_args() {
-            app.update(&u);
+        if let Some(_) = event.update_args() {
+            app.update();
         }
     }
+}
+
+
+#[test]
+fn pixel_coordinations_test() {
+    assert_eq!(GameOfLife::pixel_coord(10, 10, 2.0), (22.0, 22.0));
+    assert_eq!(GameOfLife::pixel_coord(0, 0, 2.0), (2.0, 2.0));
 }
