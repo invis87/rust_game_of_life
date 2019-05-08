@@ -6,6 +6,7 @@ use std::ops::Range;
 
 const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+const FIELD_SIZE: usize = 100;
 
 pub struct GameOfLife {
     state: [bool; 100 * 100],
@@ -13,9 +14,9 @@ pub struct GameOfLife {
 
 impl Default for GameOfLife {
     fn default() -> Self {
-        let mut state = [false; 100 * 100];
-        for i in 0..100 {
-            for j in 0..100 {
+        let mut state = [false; FIELD_SIZE * FIELD_SIZE];
+        for i in 0..FIELD_SIZE {
+            for j in 0..FIELD_SIZE {
                 let pixel_index = GameOfLife::pixel_index(i, j);
                 state[pixel_index] = (i + j) % 2 == 0;
             }
@@ -27,10 +28,37 @@ impl Default for GameOfLife {
 struct Lol(usize);
 impl Lol {
     fn custom_check_add(&self, rhs: usize) -> Option<usize> {
-        if self.0 >= 99 {
+        if self.0 >= FIELD_SIZE - 1 {
             None
         } else {
             Some(self.0 + rhs)
+        }
+    }
+}
+
+struct NeighborsIterator {
+    array: [Option<usize>; 8],
+    index: usize,
+}
+impl NeighborsIterator {
+    fn new(array: [Option<usize>; 8]) -> NeighborsIterator {
+        NeighborsIterator { array, index: 0 }
+    }
+}
+impl Iterator for NeighborsIterator {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        if self.index == 8 {
+            None
+        } else {
+            let curr_elem = self.array[self.index];
+            self.index += 1;
+            if curr_elem.is_none() {
+                self.next()
+            } else {
+                curr_elem
+            }
         }
     }
 }
@@ -44,19 +72,22 @@ impl GameOfLife {
         }
     }
 
-    fn coord_neighbors(x: usize, y: usize) -> Vec<usize> {
-        let res_new = vec![
+    fn coord_neighbors(x: usize, y: usize) -> NeighborsIterator {
+        let res_new = [
             GameOfLife::safe_coord_operation(x.checked_sub(1), Some(y)),
             GameOfLife::safe_coord_operation(x.checked_sub(1), Lol(y).custom_check_add(1)),
             GameOfLife::safe_coord_operation(x.checked_sub(1), y.checked_sub(1)),
             GameOfLife::safe_coord_operation(Lol(x).custom_check_add(1), Some(y)),
-            GameOfLife::safe_coord_operation(Lol(x).custom_check_add(1), Lol(y).custom_check_add(1)),
+            GameOfLife::safe_coord_operation(
+                Lol(x).custom_check_add(1),
+                Lol(y).custom_check_add(1),
+            ),
             GameOfLife::safe_coord_operation(Lol(x).custom_check_add(1), y.checked_sub(1)),
             GameOfLife::safe_coord_operation(Some(x), y.checked_sub(1)),
             GameOfLife::safe_coord_operation(Some(x), Lol(y).custom_check_add(1)),
         ];
 
-        res_new.iter().filter_map(|opt| *opt).collect()
+        NeighborsIterator::new(res_new)
     }
 
     fn alive_neighbors(&self, x: usize, y: usize) -> usize {
@@ -72,23 +103,25 @@ impl GameOfLife {
     }
 
     fn tick(&mut self) {
-        println!("update");
-        for i in 0..100 {
-            for j in 0..100 {
+        let mut new_state = [false; FIELD_SIZE * FIELD_SIZE];
+        for i in 0..FIELD_SIZE {
+            for j in 0..FIELD_SIZE {
                 let pixel_state = self.pixel_state(i, j);
                 let alive_neighbors = self.alive_neighbors(i, j);
 
                 //dead cell
                 if !pixel_state && alive_neighbors == 3 {
-                    self.state[GameOfLife::pixel_index(i, j)] = true;
+                    new_state[GameOfLife::pixel_index(i, j)] = true;
                 }
 
                 //alive cell
                 if pixel_state && !(alive_neighbors == 2 || alive_neighbors == 3) {
-                    self.state[GameOfLife::pixel_index(i, j)] = false;
+                    new_state[GameOfLife::pixel_index(i, j)] = false;
                 }
             }
         }
+
+        self.state = new_state;
     }
 
     fn pixel_state(&self, x: usize, y: usize) -> bool {
@@ -96,7 +129,7 @@ impl GameOfLife {
     }
 
     fn pixel_index(x: usize, y: usize) -> usize {
-        x * 100 + y
+        x * FIELD_SIZE + y
     }
 }
 
@@ -122,12 +155,11 @@ impl App {
     }
 
     fn render(&self, event: &Event, window: &mut PistonWindow) {
-        println!("render");
         let pixel = rectangle::square(0.0, 0.0, self.pixel_size);
 
         window.draw_2d(event, |c, g| {
-            for i in 0..100 {
-                for j in 0..100 {
+            for i in 0..FIELD_SIZE {
+                for j in 0..FIELD_SIZE {
                     let pixel_state = self.game.pixel_state(i, j);
                     let pixel_color = if pixel_state { WHITE } else { BLACK };
                     let (pixel_x, pixel_y) = self.pixel_coord(j, i);
