@@ -9,7 +9,7 @@ const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 const FIELD_SIZE: usize = 100;
 
 pub struct GameOfLife {
-    state: [bool; 100 * 100],
+    state: [bool; FIELD_SIZE * FIELD_SIZE],
 }
 
 impl Default for GameOfLife {
@@ -142,7 +142,7 @@ struct App {
 impl App {
     fn new(speed: u64, pixel_size: f64) -> App {
         App {
-            speed: 20,
+            speed: 1,
             pixel_size: 5.0,
             game: Default::default(),
         }
